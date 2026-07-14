@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#F7F6F2">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="休日管理">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<title>休日管理ツール</title>
+<style>
+:root{
+  --bg:#F7F6F2; --card:#FFFFFF; --ink:#2B2A26; --sub:#8A877E; --line:#E5E3DB;
+  --work:#2A78D6; --work-bg:#E6F1FB;
+  --off:#8A877E; --off-bg:#F1EFE8;
+  --paid:#0F6E56; --paid-bg:#E1F5EE;
+  --sun:#A32D2D; --sun-bg:#FCEBEB;
+  --shop:#854F0B; --shop-bg:#FAEEDA;
+  --radius:10px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:"Hiragino Kaku Gothic ProN","Hiragino Sans","Yu Gothic",Meiryo,sans-serif;background:var(--bg);color:var(--ink);padding:16px;max-width:760px;margin:0 auto;font-size:15px}
+h1{font-size:19px;font-weight:600;letter-spacing:.04em}
+.head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:6px}
+.head small{color:var(--sub);font-size:12px}
+
+/* dashboard */
+.dash{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:12px 14px}
+.tile .lbl{font-size:12px;color:var(--sub);margin-bottom:4px}
+.tile .val{font-size:26px;font-weight:600;line-height:1.1}
+.tile .val small{font-size:13px;font-weight:400;color:var(--sub)}
+.tile .bar{height:5px;background:var(--line);border-radius:3px;margin-top:8px;overflow:hidden}
+.tile .bar i{display:block;height:100%;border-radius:3px}
+.tile.ok .val{color:var(--paid)}
+.tile.warn .val{color:var(--sun)}
+
+/* calendar */
+.calcard{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px;margin-bottom:16px}
+.calnav{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.calnav b{font-size:17px}
+.calnav button{border:1px solid var(--line);background:var(--card);border-radius:8px;padding:6px 14px;font-size:15px;cursor:pointer;color:var(--ink)}
+.calnav button:active{transform:scale(.96)}
+.grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.dow{text-align:center;font-size:11px;color:var(--sub);padding:4px 0}
+.dow:first-child{color:var(--sun)}
+.dow:last-child{color:var(--work)}
+.day{min-height:58px;border:1px solid var(--line);border-radius:8px;padding:4px;cursor:pointer;position:relative;background:var(--card);display:flex;flex-direction:column;user-select:none}
+.day.other{opacity:.45}
+.day.other .num{font-weight:400}
+.day .num{font-size:12px;font-weight:600}
+.day.is-sun .num{color:var(--sun)}
+.day.is-sat .num{color:var(--work)}
+.day.is-hol .num::after{content:"祝";font-size:9px;color:var(--sun);margin-left:2px}
+.day .tag{margin-top:auto;font-size:10px;text-align:center;border-radius:5px;padding:2px 0;font-weight:600}
+.day.s-work{background:var(--work-bg)}.day.s-work .tag{color:var(--work)}
+.day.s-plain .tag{color:#C5C3BA;font-weight:400}
+.day.s-off{background:var(--off-bg)}.day.s-off .tag{color:#5F5E5A}
+.day.s-paid{background:var(--paid-bg)}.day.s-paid .tag{color:var(--paid)}
+.day.s-shop{background:var(--shop-bg)}.day.s-shop .tag{color:var(--shop)}
+.day.s-sun{background:var(--sun-bg)}.day.s-sun .tag{color:var(--sun)}
+.day.today{outline:2px solid var(--ink);outline-offset:-1px}
+.legend{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px;font-size:11px;color:var(--sub)}
+.legend span{display:flex;align-items:center;gap:4px}
+.legend i{width:11px;height:11px;border-radius:3px;display:inline-block}
+.hint{font-size:12px;color:var(--sub);margin-top:10px;line-height:1.7}
+
+/* summary + settings */
+.sumcard{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px;margin-bottom:16px}
+.sumcard h2{font-size:14px;font-weight:600;margin-bottom:10px}
+.sumrow{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--line);font-size:14px}
+.sumrow:last-child{border-bottom:none}
+.sumrow b{font-variant-numeric:tabular-nums}
+.mlbl{font-size:12px;color:var(--sub);margin:12px 0 6px}
+.mgrid{display:grid;grid-template-columns:repeat(6,1fr);gap:5px}
+.mcell{border:1px solid var(--line);border-radius:7px;padding:5px 2px;text-align:center}
+.mcell span{display:block;font-size:10px;color:var(--sub)}
+.mcell b{font-size:15px;font-variant-numeric:tabular-nums}
+.mcell.hit{background:var(--paid-bg);border-color:var(--paid-bg)}
+.mcell.hit b{color:var(--paid)}
+.mcell.half{background:var(--shop-bg);border-color:var(--shop-bg)}
+.mcell.half b{color:var(--shop)}
+@media(max-width:480px){.mgrid{grid-template-columns:repeat(4,1fr)}}
+.set{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.set label{font-size:12px;color:var(--sub);display:block;margin-bottom:3px}
+.set input{width:100%;border:1px solid var(--line);border-radius:8px;padding:8px;font-size:14px;background:var(--card);color:var(--ink)}
+.savemsg{font-size:12px;color:var(--paid);margin-top:8px;min-height:16px}
+
+/* data (export / import) */
+.databtns{display:flex;gap:10px;flex-wrap:wrap}
+.databtns button{flex:1;min-width:130px;border:1px solid var(--line);background:var(--card);border-radius:8px;padding:10px 14px;font-size:14px;cursor:pointer;color:var(--ink);font-weight:600}
+.databtns button:active{transform:scale(.97)}
+.databtns .primary{background:var(--paid-bg);border-color:var(--paid-bg);color:var(--paid)}
+.datamsg{font-size:12px;margin-top:8px;min-height:16px;color:var(--paid)}
+.datamsg.err{color:var(--sun)}
+.datanote{font-size:12px;color:var(--sub);margin-top:6px;line-height:1.7}
+
+@media(max-width:480px){
+  body{padding:10px}
+  .day{min-height:52px}
+  .tile .val{font-size:22px}
+}
+</style>
+</head>
+<body>
+
+<div class="head">
+  <h1>休日管理ツール</h1>
+  <small>週4日出勤・有給20日・日曜月2回</small>
+</div>
+
+<div class="dash" id="dash"></div>
+
+<div class="calcard">
+  <div class="calnav">
+    <button id="prev">‹ 前月</button>
+    <b id="ym"></b>
+    <button id="next">翌月 ›</button>
+  </div>
+  <div class="grid" id="cal"></div>
+  <div class="legend">
+    <span><i style="background:var(--card);border:1px solid var(--line)"></i>出勤（自動）</span>
+    <span><i style="background:var(--off-bg)"></i>休み・定休</span>
+    <span><i style="background:var(--paid-bg)"></i>有給</span>
+    <span><i style="background:var(--sun-bg)"></i>日曜休み</span>
+    <span><i style="background:var(--shop-bg)"></i>お盆・正月休業</span>
+  </div>
+  <div class="hint">休み以外の日は自動的に「出勤」扱いになります。休む日だけタップしてください（休み → 有給 → 出勤に戻る）。火曜日は自動で定休（祝日を除く）。日曜日を休みにすると「日曜休み」としてカウントされます。前後の月の日付もタップで編集できます。</div>
+</div>
+
+<div class="sumcard">
+  <h2 id="sumtitle">今月のまとめ</h2>
+  <div id="summary"></div>
+</div>
+
+<div class="sumcard">
+  <h2 id="yeartitle">年間のまとめ</h2>
+  <div id="yearsummary"></div>
+  <div class="msun" id="msun"></div>
+</div>
+
+<div class="sumcard">
+  <h2>設定</h2>
+  <div class="set">
+    <div><label>年間有給付与日数</label><input type="number" id="paidTotal" min="0" max="40"></div>
+    <div><label>週の出勤目標（日）</label><input type="number" id="weekTarget" min="1" max="7"></div>
+    <div><label>お盆休み 開始</label><input type="date" id="obonS"></div>
+    <div><label>お盆休み 終了</label><input type="date" id="obonE"></div>
+    <div><label>正月休み 開始</label><input type="date" id="nyS"></div>
+    <div><label>正月休み 終了</label><input type="date" id="nyE"></div>
+  </div>
+  <div class="savemsg" id="savemsg"></div>
+</div>
+
+<div class="sumcard">
+  <h2>データのバックアップ</h2>
+  <div class="databtns">
+    <button class="primary" id="exportBtn">エクスポート（保存）</button>
+    <button id="importBtn">インポート（復元）</button>
+  </div>
+  <input type="file" id="importFile" accept=".json,application/json" style="display:none">
+  <div class="datamsg" id="datamsg"></div>
+  <div class="datanote">エクスポートでJSONファイルをダウンロードできます。機種変更やバックアップの際は、エクスポートしたファイルを新しい端末でインポートしてください。データはこの端末のブラウザ内にのみ保存されます。</div>
+</div>
+
+<script>
+// 日本の祝日（2026〜2031年・振替休日/国民の休日を含む）
+const HOLIDAYS = {
+"2026-01-01":"元日","2026-01-12":"成人の日","2026-02-11":"建国記念の日","2026-02-23":"天皇誕生日",
+"2026-03-20":"春分の日","2026-04-29":"昭和の日","2026-05-03":"憲法記念日","2026-05-04":"みどりの日",
+"2026-05-05":"こどもの日","2026-05-06":"振替休日","2026-07-20":"海の日","2026-08-11":"山の日",
+"2026-09-21":"敬老の日","2026-09-22":"国民の休日","2026-09-23":"秋分の日","2026-10-12":"スポーツの日",
+"2026-11-03":"文化の日","2026-11-23":"勤労感謝の日",
+"2027-01-01":"元日","2027-01-11":"成人の日","2027-02-11":"建国記念の日","2027-02-23":"天皇誕生日",
+"2027-03-21":"春分の日","2027-03-22":"振替休日","2027-04-29":"昭和の日","2027-05-03":"憲法記念日",
+"2027-05-04":"みどりの日","2027-05-05":"こどもの日","2027-07-19":"海の日","2027-08-11":"山の日",
+"2027-09-20":"敬老の日","2027-09-23":"秋分の日","2027-10-11":"スポーツの日","2027-11-03":"文化の日",
+"2027-11-23":"勤労感謝の日",
+"2028-01-01":"元日","2028-01-10":"成人の日","2028-02-11":"建国記念の日","2028-02-23":"天皇誕生日",
+"2028-03-20":"春分の日","2028-04-29":"昭和の日","2028-05-03":"憲法記念日","2028-05-04":"みどりの日",
+"2028-05-05":"こどもの日","2028-07-17":"海の日","2028-08-11":"山の日","2028-09-18":"敬老の日",
+"2028-09-22":"秋分の日","2028-10-09":"スポーツの日","2028-11-03":"文化の日","2028-11-23":"勤労感謝の日",
+"2029-01-01":"元日","2029-01-08":"成人の日","2029-02-11":"建国記念の日","2029-02-12":"振替休日",
+"2029-02-23":"天皇誕生日","2029-03-20":"春分の日","2029-04-29":"昭和の日","2029-04-30":"振替休日",
+"2029-05-03":"憲法記念日","2029-05-04":"みどりの日","2029-05-05":"こどもの日","2029-07-16":"海の日",
+"2029-08-11":"山の日","2029-09-17":"敬老の日","2029-09-23":"秋分の日","2029-09-24":"振替休日",
+"2029-10-08":"スポーツの日","2029-11-03":"文化の日","2029-11-23":"勤労感謝の日",
+"2030-01-01":"元日","2030-01-14":"成人の日","2030-02-11":"建国記念の日","2030-02-23":"天皇誕生日",
+"2030-03-20":"春分の日","2030-04-29":"昭和の日","2030-05-03":"憲法記念日","2030-05-04":"みどりの日",
+"2030-05-05":"こどもの日","2030-05-06":"振替休日","2030-07-15":"海の日","2030-08-11":"山の日",
+"2030-08-12":"振替休日","2030-09-16":"敬老の日","2030-09-23":"秋分の日","2030-10-14":"スポーツの日",
+"2030-11-03":"文化の日","2030-11-04":"振替休日","2030-11-23":"勤労感謝の日",
+"2031-01-01":"元日","2031-01-13":"成人の日","2031-02-11":"建国記念の日","2031-02-23":"天皇誕生日",
+"2031-02-24":"振替休日","2031-03-21":"春分の日","2031-04-29":"昭和の日","2031-05-03":"憲法記念日",
+"2031-05-04":"みどりの日","2031-05-05":"こどもの日","2031-05-06":"振替休日","2031-07-21":"海の日",
+"2031-08-11":"山の日","2031-09-15":"敬老の日","2031-09-23":"秋分の日","2031-10-13":"スポーツの日",
+"2031-11-03":"文化の日","2031-11-23":"勤労感謝の日","2031-11-24":"振替休日"
+};
+
+const KEY = "leave-tracker-v1";
+const defaultSettings = { paidTotal: 20, weekTarget: 4, obonS: "2026-08-13", obonE: "2026-08-16", nyS: "2026-12-30", nyE: "2027-01-03" };
+let data = { days: {}, settings: Object.assign({}, defaultSettings) };
+let cur = new Date();
+cur = new Date(cur.getFullYear(), cur.getMonth(), 1);
+
+const pad = n => String(n).padStart(2,"0");
+const key = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const todayKey = key(new Date());
+
+function inRange(k, s, e){ return s && e && k >= s && k <= e; }
+function isShopHoliday(k){
+  const st = data.settings;
+  return inRange(k, st.obonS, st.obonE) || inRange(k, st.nyS, st.nyE);
+}
+function defaultStatus(d){
+  const k = key(d);
+  if (isShopHoliday(k)) return "shop";
+  if (d.getDay() === 2 && !HOLIDAYS[k]) return "teikyu";
+  return "work";
+}
+function effStatus(d){
+  const k = key(d);
+  const manual = data.days[k];
+  if (manual) return manual;
+  return defaultStatus(d);
+}
+
+function applyData(parsed){
+  data.days = parsed.days || {};
+  data.settings = Object.assign({}, defaultSettings, parsed.settings || {});
+}
+
+function load(){
+  try{
+    const raw = localStorage.getItem(KEY);
+    if (raw) applyData(JSON.parse(raw));
+  }catch(e){ /* 初回利用または破損データ */ }
+  bindSettings();
+  render();
+}
+let saveTimer = null;
+function save(msg){
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(()=>{
+    try{
+      localStorage.setItem(KEY, JSON.stringify(data));
+      const el = document.getElementById("savemsg");
+      if (msg){ el.textContent = "保存しました"; setTimeout(()=>el.textContent="",1500); }
+    }catch(e){
+      document.getElementById("savemsg").textContent = "保存に失敗しました";
+    }
+  }, 300);
+}
+
+const SETTING_IDS = ["paidTotal","weekTarget","obonS","obonE","nyS","nyE"];
+function fillSettings(){
+  SETTING_IDS.forEach(id=>{ document.getElementById(id).value = data.settings[id]; });
+}
+function bindSettings(){
+  fillSettings();
+  SETTING_IDS.forEach(id=>{
+    const el = document.getElementById(id);
+    el.addEventListener("change", ()=>{
+      data.settings[id] = (el.type === "number") ? Number(el.value) : el.value;
+      save(true); render();
+    });
+  });
+}
+
+function render(){
+  renderCal(); renderDash(); renderSummary(); renderYear();
+}
+
+function renderCal(){
+  const y = cur.getFullYear(), m = cur.getMonth();
+  document.getElementById("ym").textContent = `${y}年 ${m+1}月`;
+  const grid = document.getElementById("cal");
+  grid.innerHTML = "";
+  ["日","月","火","水","木","金","土"].forEach(d=>{
+    const el = document.createElement("div"); el.className="dow"; el.textContent=d; grid.appendChild(el);
+  });
+  const first = new Date(y,m,1).getDay();
+  const days = new Date(y,m+1,0).getDate();
+  const total = Math.ceil((first + days) / 7) * 7;
+  for (let i=0; i<total; i++){
+    const date = new Date(y, m, i - first + 1);
+    const k = key(date), dow = date.getDay();
+    const isOther = date.getMonth() !== m;
+    const el = document.createElement("div");
+    el.className = "day";
+    if (isOther) el.classList.add("other");
+    if (dow===0) el.classList.add("is-sun");
+    if (dow===6) el.classList.add("is-sat");
+    if (HOLIDAYS[k]) el.classList.add("is-hol");
+    if (k===todayKey) el.classList.add("today");
+    const s = effStatus(date);
+    let tag = "";
+    if (s==="work"){ el.classList.add("s-plain"); tag="出勤"; }
+    else if (s==="off"){ el.classList.add(dow===0?"s-sun":"s-off"); tag = dow===0?"日曜休み":"休み"; }
+    else if (s==="paid"){ el.classList.add("s-paid"); tag="有給"; }
+    else if (s==="teikyu"){ el.classList.add("s-off"); tag="定休"; }
+    else if (s==="shop"){ el.classList.add("s-shop"); tag="休業"; }
+    const label = isOther ? `${date.getMonth()+1}/${date.getDate()}` : date.getDate();
+    el.innerHTML = `<span class="num">${label}</span>` + (tag?`<span class="tag">${tag}</span>`:"");
+    el.addEventListener("click", ()=>{
+      const order = [null,"off","paid"];
+      const curManual = data.days[k] || null;
+      const next = order[(order.indexOf(curManual)+1) % order.length];
+      if (next === null) delete data.days[k]; else data.days[k] = next;
+      save(); render();
+    });
+    grid.appendChild(el);
+  }
+}
+
+const FY_START = 7; // 8月始まり（0始まりの月番号）
+function fiscalOf(y,m){ return m >= FY_START ? y : y - 1; }
+
+function countPaidFY(fy){
+  let c=0;
+  for (const k in data.days){
+    if (data.days[k]!=="paid") continue;
+    const [y,m] = k.split("-").map(Number);
+    if (fiscalOf(y, m-1) === fy) c++;
+  }
+  return c;
+}
+function monthStats(y,m){
+  const days = new Date(y,m+1,0).getDate();
+  let work=0, off=0, paid=0, sunOff=0, shop=0;
+  for (let d=1; d<=days; d++){
+    const date = new Date(y,m,d), s = effStatus(date);
+    if (s==="work") work++;
+    else if (s==="paid"){ paid++; if(date.getDay()===0) sunOff++; }
+    else if (s==="off"){ off++; if(date.getDay()===0) sunOff++; }
+    else if (s==="teikyu") off++;
+    else if (s==="shop") shop++;
+  }
+  return {work,off,paid,sunOff,shop};
+}
+function yearStats(fy){
+  let work=0, off=0, paid=0, sunOff=0, shop=0, sunOk=0;
+  const perMonth=[];
+  for (let i=0; i<12; i++){
+    const m = (FY_START + i) % 12;
+    const y = fy + (FY_START + i >= 12 ? 1 : 0);
+    const ms = monthStats(y,m);
+    work+=ms.work; off+=ms.off; paid+=ms.paid; sunOff+=ms.sunOff; shop+=ms.shop;
+    perMonth.push({label:`${m+1}月`, n:ms.sunOff});
+    if (ms.sunOff>=2) sunOk++;
+  }
+  return {work,off,paid,sunOff,shop,sunOk,perMonth};
+}
+function weekStats(){
+  const now = new Date();
+  const dow = (now.getDay()+6)%7;
+  const mon = new Date(now); mon.setDate(now.getDate()-dow);
+  let work=0;
+  for (let i=0;i<7;i++){
+    const d = new Date(mon); d.setDate(mon.getDate()+i);
+    if (effStatus(d)==="work") work++;
+  }
+  return work;
+}
+
+function renderDash(){
+  const y = cur.getFullYear(), m = cur.getMonth();
+  const st = data.settings;
+  const fy = fiscalOf(y,m);
+  const usedPaid = countPaidFY(fy);
+  const remain = st.paidTotal - usedPaid;
+  const ms = monthStats(y,m);
+  const wk = weekStats();
+  const dash = document.getElementById("dash");
+  const pct = (v,t)=> t>0 ? Math.min(100, Math.round(v/t*100)) : 0;
+  dash.innerHTML = `
+    <div class="tile ${remain<=3?'warn':''}">
+      <div class="lbl">有給残日数（${fy}年度）</div>
+      <div class="val">${remain}<small> / ${st.paidTotal}日</small></div>
+      <div class="bar"><i style="width:${pct(usedPaid,st.paidTotal)}%;background:var(--paid)"></i></div>
+    </div>
+    <div class="tile ${ms.sunOff>=2?'ok':''}">
+      <div class="lbl">${m+1}月の日曜休み</div>
+      <div class="val">${ms.sunOff}<small> / 2回</small></div>
+      <div class="bar"><i style="width:${pct(ms.sunOff,2)}%;background:var(--sun)"></i></div>
+    </div>
+    <div class="tile ${wk>st.weekTarget?'warn':''}">
+      <div class="lbl">今週の出勤</div>
+      <div class="val">${wk}<small> / ${st.weekTarget}日</small></div>
+      <div class="bar"><i style="width:${pct(wk,st.weekTarget)}%;background:var(--work)"></i></div>
+    </div>
+    <div class="tile">
+      <div class="lbl">${m+1}月の出勤日数</div>
+      <div class="val">${ms.work}<small>日</small></div>
+    </div>`;
+}
+
+function renderSummary(){
+  const y = cur.getFullYear(), m = cur.getMonth();
+  const ms = monthStats(y,m);
+  document.getElementById("sumtitle").textContent = `${m+1}月のまとめ`;
+  document.getElementById("summary").innerHTML = `
+    <div class="sumrow"><span>出勤</span><b>${ms.work}日</b></div>
+    <div class="sumrow"><span>休み（定休含む）</span><b>${ms.off}日</b></div>
+    <div class="sumrow"><span>有給</span><b>${ms.paid}日</b></div>
+    <div class="sumrow"><span>日曜休み</span><b>${ms.sunOff}回 / 目標2回</b></div>
+    <div class="sumrow"><span>お盆・正月休業</span><b>${ms.shop}日</b></div>`;
+}
+
+function renderYear(){
+  const fy = fiscalOf(cur.getFullYear(), cur.getMonth());
+  const st = data.settings;
+  const ys = yearStats(fy);
+  document.getElementById("yeartitle").textContent = `${fy}年度のまとめ（${fy}年8月〜${fy+1}年7月）`;
+  document.getElementById("yearsummary").innerHTML = `
+    <div class="sumrow"><span>出勤</span><b>${ys.work}日</b></div>
+    <div class="sumrow"><span>休み（定休含む）</span><b>${ys.off}日</b></div>
+    <div class="sumrow"><span>有給 使用 / 残り</span><b>${ys.paid}日 / ${st.paidTotal - ys.paid}日</b></div>
+    <div class="sumrow"><span>日曜休み 合計</span><b>${ys.sunOff}回</b></div>
+    <div class="sumrow"><span>日曜月2回 達成月</span><b>${ys.sunOk} / 12ヶ月</b></div>
+    <div class="sumrow"><span>お盆・正月休業</span><b>${ys.shop}日</b></div>`;
+  const cells = ys.perMonth.map(p=>{
+    const cls = p.n>=2 ? "hit" : (p.n>=1 ? "half" : "");
+    return `<div class="mcell ${cls}"><span>${p.label}</span><b>${p.n}</b></div>`;
+  }).join("");
+  document.getElementById("msun").innerHTML = `<div class="mlbl">月別の日曜休み回数（8月始まり）</div><div class="mgrid">${cells}</div>`;
+}
+
+document.getElementById("prev").addEventListener("click", ()=>{ cur = new Date(cur.getFullYear(), cur.getMonth()-1, 1); render(); });
+document.getElementById("next").addEventListener("click", ()=>{ cur = new Date(cur.getFullYear(), cur.getMonth()+1, 1); render(); });
+
+// ---- エクスポート / インポート ----
+function dataMsg(text, isErr){
+  const el = document.getElementById("datamsg");
+  el.textContent = text;
+  el.className = "datamsg" + (isErr ? " err" : "");
+  setTimeout(()=>{ el.textContent=""; }, 4000);
+}
+document.getElementById("exportBtn").addEventListener("click", ()=>{
+  const payload = { app: "leave-tracker", version: 1, exportedAt: new Date().toISOString(), days: data.days, settings: data.settings };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], {type:"application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `休日管理データ_${todayKey}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  dataMsg("エクスポートしました");
+});
+document.getElementById("importBtn").addEventListener("click", ()=>{
+  document.getElementById("importFile").click();
+});
+document.getElementById("importFile").addEventListener("change", (ev)=>{
+  const file = ev.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    try{
+      const parsed = JSON.parse(reader.result);
+      if (typeof parsed !== "object" || parsed === null || (!parsed.days && !parsed.settings)){
+        throw new Error("format");
+      }
+      if (!confirm("現在のデータをインポートした内容で上書きします。よろしいですか？")) return;
+      applyData(parsed);
+      localStorage.setItem(KEY, JSON.stringify(data));
+      fillSettings();
+      render();
+      dataMsg("インポートしました");
+    }catch(e){
+      dataMsg("読み込めませんでした。エクスポートしたJSONファイルを選択してください。", true);
+    }finally{
+      ev.target.value = "";
+    }
+  };
+  reader.readAsText(file);
+});
+
+// ---- PWA ----
+if ("serviceWorker" in navigator && location.protocol.startsWith("http")){
+  window.addEventListener("load", ()=>{
+    navigator.serviceWorker.register("sw.js").catch(()=>{ /* オフライン対応なしで継続 */ });
+  });
+}
+
+load();
+</script>
+</body>
+</html>

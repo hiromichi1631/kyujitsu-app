@@ -1,0 +1,15 @@
+{
+  "name": "休日管理ツール",
+  "short_name": "休日管理",
+  "description": "週4日出勤・有給・日曜休みを管理する個人用カレンダーアプリ",
+  "lang": "ja",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#F7F6F2",
+  "theme_color": "#F7F6F2",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}
