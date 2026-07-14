@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: kyujitsu-app
+    runtime: python
+    plan: starter
+    buildCommand: "echo no build needed"
+    startCommand: python server.py
+    healthCheckPath: /index.html
+    disk:
+      name: kyujitsu-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: DATA_DIR
+        value: /var/data

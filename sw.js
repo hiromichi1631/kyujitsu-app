@@ -1,4 +1,4 @@
-const CACHE = "leave-tracker-v1";
+const CACHE = "leave-tracker-v2";
 const ASSETS = [
   "./",
   "./index.html",
@@ -25,6 +25,8 @@ self.addEventListener("activate", (e) => {
 // ネットワーク優先・失敗時キャッシュ（更新が即反映され、オフラインでも動く）
 self.addEventListener("fetch", (e) => {
   if (e.request.method !== "GET") return;
+  // 同期APIはキャッシュしない（常にサーバーの最新データを使う）
+  if (new URL(e.request.url).pathname.startsWith("/api/")) return;
   e.respondWith(
     fetch(e.request)
       .then((res) => {

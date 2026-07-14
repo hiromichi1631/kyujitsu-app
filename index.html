@@ -156,6 +156,26 @@ h1{font-size:19px;font-weight:600;letter-spacing:.04em}
 </div>
 
 <div class="sumcard">
+  <h2>複数端末で同期</h2>
+  <div id="syncOff">
+    <div class="datanote" style="margin-top:0;margin-bottom:8px">同じ「合言葉」を設定した端末同士で、データが自動的に同期されます。他人に推測されない、あなただけの合言葉（8文字以上）を決めてください。</div>
+    <div class="set">
+      <div class="full"><label>合言葉（8文字以上）</label><input type="password" id="syncPass" autocomplete="off" placeholder="例: うちの犬はポチ2026"></div>
+    </div>
+    <div class="databtns" style="margin-top:10px">
+      <button class="primary" id="syncStart">同期を開始</button>
+    </div>
+  </div>
+  <div id="syncOn" hidden>
+    <div class="datanote" style="margin-top:0">この端末は同期中です。別の端末でも同じ合言葉で「同期を開始」すると、同じデータが見られます。</div>
+    <div class="databtns" style="margin-top:10px">
+      <button id="syncStop">この端末の同期を解除</button>
+    </div>
+  </div>
+  <div class="datamsg" id="syncmsg"></div>
+</div>
+
+<div class="sumcard">
   <h2>データのバックアップ</h2>
   <div class="databtns">
     <button class="primary" id="exportBtn">エクスポート（保存）</button>
@@ -202,7 +222,7 @@ const HOLIDAYS = {
 
 const KEY = "leave-tracker-v1";
 const defaultSettings = { paidTotal: 20, weekTarget: 4, obonS: "2026-08-13", obonE: "2026-08-16", nyS: "2026-12-30", nyE: "2027-01-03" };
-let data = { days: {}, settings: Object.assign({}, defaultSettings) };
+let data = { days: {}, settings: Object.assign({}, defaultSettings), updatedAt: null };
 let cur = new Date();
 cur = new Date(cur.getFullYear(), cur.getMonth(), 1);
 
@@ -231,6 +251,7 @@ function effStatus(d){
 function applyData(parsed){
   data.days = parsed.days || {};
   data.settings = Object.assign({}, defaultSettings, parsed.settings || {});
+  data.updatedAt = parsed.updatedAt || null;
 }
 
 function load(){
@@ -246,9 +267,11 @@ function save(msg){
   clearTimeout(saveTimer);
   saveTimer = setTimeout(()=>{
     try{
+      data.updatedAt = new Date().toISOString();
       localStorage.setItem(KEY, JSON.stringify(data));
       const el = document.getElementById("savemsg");
       if (msg){ el.textContent = "保存しました"; setTimeout(()=>el.textContent="",1500); }
+      pushRemote();
     }catch(e){
       document.getElementById("savemsg").textContent = "保存に失敗しました";
     }
@@ -464,9 +487,11 @@ document.getElementById("importFile").addEventListener("change", (ev)=>{
       }
       if (!confirm("現在のデータをインポートした内容で上書きします。よろしいですか？")) return;
       applyData(parsed);
+      data.updatedAt = new Date().toISOString();
       localStorage.setItem(KEY, JSON.stringify(data));
       fillSettings();
       render();
+      pushRemote();
       dataMsg("インポートしました");
     }catch(e){
       dataMsg("読み込めませんでした。エクスポートしたJSONファイルを選択してください。", true);
@@ -476,6 +501,94 @@ document.getElementById("importFile").addEventListener("change", (ev)=>{
   };
   reader.readAsText(file);
 });
+
+// ---- 複数端末同期 ----
+const SYNC_LS = "leave-tracker-synckey";
+let syncKey = localStorage.getItem(SYNC_LS) || "";
+let pushTimer = null;
+
+function syncActive(){ return !!syncKey && location.protocol.startsWith("http"); }
+function syncMsg(text, isErr){
+  const el = document.getElementById("syncmsg");
+  el.textContent = text;
+  el.className = "datamsg" + (isErr ? " err" : "");
+}
+function updateSyncUI(){
+  document.getElementById("syncOff").hidden = !!syncKey;
+  document.getElementById("syncOn").hidden = !syncKey;
+}
+async function sha256hex(s){
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
+  return [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,"0")).join("");
+}
+function nowHM(){ const d=new Date(); return `${d.getHours()}:${pad(d.getMinutes())}`; }
+
+function pushRemote(){
+  if (!syncActive()) return;
+  clearTimeout(pushTimer);
+  pushTimer = setTimeout(async ()=>{
+    try{
+      const res = await fetch("api/data", {
+        method: "PUT",
+        headers: {"X-Sync-Key": syncKey, "Content-Type": "application/json"},
+        body: JSON.stringify({ data: {days: data.days, settings: data.settings, updatedAt: data.updatedAt}, updatedAt: data.updatedAt })
+      });
+      if (!res.ok) throw new Error(res.status);
+      syncMsg(`同期済み（${nowHM()}）`);
+    }catch(e){
+      syncMsg("サーバーに接続できません（データは端末内に保存されています）", true);
+    }
+  }, 500);
+}
+
+async function pullRemote(){
+  if (!syncActive()) return;
+  try{
+    const res = await fetch("api/data", {headers: {"X-Sync-Key": syncKey}, cache: "no-store"});
+    if (res.status === 404){ pushRemote(); return; } // サーバー側が空 → この端末の内容を登録
+    if (!res.ok) throw new Error(res.status);
+    const remote = await res.json();
+    if (remote.updatedAt && (!data.updatedAt || remote.updatedAt > data.updatedAt)){
+      applyData(remote.data || {});
+      data.updatedAt = remote.updatedAt;
+      localStorage.setItem(KEY, JSON.stringify(data));
+      fillSettings(); render();
+      syncMsg(`同期済み（${nowHM()}）`);
+    } else if (data.updatedAt && (!remote.updatedAt || data.updatedAt > remote.updatedAt)){
+      pushRemote();
+    } else {
+      syncMsg(`同期済み（${nowHM()}）`);
+    }
+  }catch(e){
+    syncMsg("サーバーに接続できません（データは端末内に保存されています）", true);
+  }
+}
+
+document.getElementById("syncStart").addEventListener("click", async ()=>{
+  const pass = document.getElementById("syncPass").value.trim();
+  if (pass.length < 8){ syncMsg("合言葉は8文字以上にしてください", true); return; }
+  if (!window.isSecureContext || !crypto.subtle){ syncMsg("この開き方では同期を使えません（公開URLから開いてください）", true); return; }
+  syncKey = await sha256hex(pass);
+  localStorage.setItem(SYNC_LS, syncKey);
+  document.getElementById("syncPass").value = "";
+  updateSyncUI();
+  syncMsg("同期を開始しています…");
+  pullRemote();
+});
+document.getElementById("syncStop").addEventListener("click", ()=>{
+  if (!confirm("この端末の同期を解除します。端末内のデータはそのまま残ります。よろしいですか？")) return;
+  syncKey = "";
+  localStorage.removeItem(SYNC_LS);
+  updateSyncUI();
+  syncMsg("同期を解除しました");
+});
+
+// アプリに戻ってきたときに最新を取り込む（別端末での変更を反映）
+window.addEventListener("focus", pullRemote);
+document.addEventListener("visibilitychange", ()=>{ if (!document.hidden) pullRemote(); });
+
+updateSyncUI();
+pullRemote();
 
 // ---- PWA ----
 if ("serviceWorker" in navigator && location.protocol.startsWith("http")){
